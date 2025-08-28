@@ -79,6 +79,9 @@ fn basic_value_to_py_object<'py>(
         value::BasicValue::UnionVariant { tag_id, value } => {
             (*tag_id, basic_value_to_py_object(py, value)?).into_bound_py_any(py)?
         }
+        value::BasicValue::Enum(v) => {
+            v.into_bound_py_any(py)?
+        }, // Convert Enum to Python string
     };
     Ok(result)
 }
@@ -198,6 +201,16 @@ fn basic_value_from_py_object<'py>(
                     v, s.types
                 ))
             })?
+        }
+        schema::BasicValueType::Enum(enum_schema) => {
+            let value = v.extract::<String>()?;
+            if enum_schema.values.iter().any(|v| v.as_ref() == value) {
+                value::BasicValue::Enum(Arc::from(value))
+            } else {
+                return Err(PyErr::new::<PyTypeError, _>(format!(
+                    "Invalid enum value: '{}', expected one of {:?}", value, enum_schema.values
+                )));
+            }
         }
     };
     Ok(result)
@@ -455,6 +468,24 @@ mod tests {
         let struct_typ = schema::ValueType::Struct(struct_schema); // No clone needed
 
         assert_roundtrip_conversion(&struct_val, &struct_typ);
+    }
+
+    #[test]
+    fn test_roundtrip_enum() {
+        let enum_schema = schema::EnumTypeSchema {
+            values: vec![Arc::from("ACTIVE"), Arc::from("INACTIVE")],
+        };
+        let enum_type = schema::ValueType::Basic(schema::BasicValueType::Enum(enum_schema));
+        let enum_value = value::Value::Basic(value::BasicValue::Enum(Arc::from("ACTIVE")));
+
+        assert_roundtrip_conversion(&enum_value, &enum_type);
+
+        // Test invalid Enum value
+        Python::with_gil(|py| {
+            let invalid_value = "INVALID".into_bound_py_any(py).unwrap();
+            let result = value_from_py_object(&enum_type, &invalid_value);
+            assert!(result.is_err(), "Expected error for invalid enum value");
+        });
     }
 
     #[test]

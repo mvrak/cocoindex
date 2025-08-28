@@ -188,6 +188,20 @@ impl JsonSchemaBuilder {
                     ..Default::default()
                 }));
             }
+            schema::BasicValueType::Enum(s) => {
+                schema.instance_type = Some(SingleOrVec::Single(Box::new(InstanceType::String)));
+                schema.enum_values = Some(
+                    s.values
+                        .iter()
+                        .map(|v| serde_json::Value::String(v.to_string()))
+                        .collect(),
+                );
+                self.set_description(
+                    &mut schema,
+                    format!("An enumeration with allowed values: {}", s.values.join(", ")),
+                    field_path,
+                );
+            }
         }
         schema
     }

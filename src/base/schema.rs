@@ -1,6 +1,7 @@
 use crate::prelude::*;
 
 use super::spec::*;
+use std::sync::Arc;
 use crate::builder::plan::AnalyzedValueMapping;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -12,6 +13,11 @@ pub struct VectorTypeSchema {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct UnionTypeSchema {
     pub types: Vec<BasicValueType>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct EnumTypeSchema {
+    pub values: Vec<Arc<str>>, // List of allowed Enum values
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -64,6 +70,9 @@ pub enum BasicValueType {
 
     /// A union
     Union(UnionTypeSchema),
+
+    // Enum variant
+    Enum(EnumTypeSchema),
 }
 
 impl std::fmt::Display for BasicValueType {
@@ -98,6 +107,16 @@ impl std::fmt::Display for BasicValueType {
                         write!(f, " | ")?;
                     }
                     write!(f, "{typ}")?;
+                }
+                write!(f, "]")
+            }
+            BasicValueType::Enum(s) => {
+                write!(f, "Enum[")?;
+                for (i, value) in s.values.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{value}")?;
                 }
                 write!(f, "]")
             }
